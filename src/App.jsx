@@ -837,8 +837,8 @@ const css = `
     font-size:13px; font-weight:700; color:var(--accent);
   }
   .comment-body { flex:1; min-width:0; }
-  .comment-header { display:flex; align-items:center; gap:8px; margin-bottom:3px; }
-  .comment-author { font-size:12px; font-weight:600; color:var(--text-primary); }
+  .comment-header { display:flex; align-items:baseline; gap:8px; margin-bottom:3px; flex-wrap:wrap; }
+  .comment-author { font-size:12px; font-weight:600; color:var(--text-primary); word-break:break-all; overflow-wrap:anywhere; max-width:100%; }
   .comment-time { font-size:11px; color:var(--text-muted); }
   .comment-text { font-size:13px; color:var(--text-secondary); line-height:1.5; word-break:break-word; }
   .comment-delete {
@@ -1305,7 +1305,7 @@ function CommentSection({ comments, faqId, onAdd, onDelete, isAdmin, t }) {
           <div className="comment-form">
             <div className="comment-form-inputs">
               <input className="comment-author-input" placeholder={t.commentAuthorPh} value={author}
-                onChange={(e) => setAuthor(e.target.value)} />
+                onChange={(e) => setAuthor(e.target.value)} maxLength={100} />
               <div className="comment-text-row">
                 <input className="comment-text-input" placeholder={t.commentPh} value={text}
                   onChange={(e) => setText(e.target.value)}
