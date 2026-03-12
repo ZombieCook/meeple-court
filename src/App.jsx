@@ -1138,9 +1138,9 @@ function ReferenceFormItem({ refData, index, onChange, onRemove, t }) {
   );
 }
 
-function FAQFormModal({ faq, games, onSave, onClose, lang, t }) {
+function FAQFormModal({ faq, games, defaultGameId, onSave, onClose, lang, t }) {
   const isEdit = !!faq;
-  const [gameId, setGameId] = useState(faq?.gameId || games[0]?.id || "");
+  const [gameId, setGameId] = useState(faq?.gameId || defaultGameId || games[0]?.id || "");
   const [question, setQuestion] = useState(faq?.question || "");
   const [answer, setAnswer] = useState(faq?.answer || "");
   const [tags, setTags] = useState(faq?.tags || []);
@@ -1952,7 +1952,7 @@ export default function App() {
         </button>
       </div>
 
-      {showForm && <FAQFormModal faq={editingFaq} games={games} onSave={handleSave} onClose={() => { setShowForm(false); setEditingFaq(null); }} lang={lang} t={t} />}
+      {showForm && <FAQFormModal faq={editingFaq} games={games} defaultGameId={selectedGame !== "all" ? selectedGame : undefined} onSave={handleSave} onClose={() => { setShowForm(false); setEditingFaq(null); }} lang={lang} t={t} />}
       {showGameForm && <GameFormModal onSave={handleAddGame} onClose={() => setShowGameForm(false)} t={t} />}
       {showAdminPw && <AdminPasswordModal onSuccess={() => { setIsAdmin(true); setShowAdminPw(false); showToast(t.toastAdminOn); }} onClose={() => setShowAdminPw(false)} t={t} />}
       {deletingId && <ConfirmModal message={t.deleteConfirm} onConfirm={() => handleDelete(deletingId)} onCancel={() => setDeletingId(null)} t={t} />}
