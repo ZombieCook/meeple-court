@@ -1497,7 +1497,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedGame, setSelectedGame] = useState("all");
-  const [selectedTag, setSelectedTag] = useState(null);
+  const [selectedTags, setSelectedTags] = useState(new Set());
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminRevealed, setAdminRevealed] = useState(false);
   const [showAdminPw, setShowAdminPw] = useState(false);
@@ -1747,7 +1747,7 @@ export default function App() {
     return faqs
       .filter((f) => {
         if (selectedGame !== "all" && f.gameId !== selectedGame) return false;
-        if (selectedTag && !f.tags.includes(selectedTag)) return false;
+        if (selectedTags.size > 0 && ![...selectedTags].every((tg) => f.tags.includes(tg))) return false;
         if (search.trim()) {
           const s = search.toLowerCase();
           if (!f.question.toLowerCase().includes(s) && !f.answer.toLowerCase().includes(s) && !f.tags.some((tg) => tg.toLowerCase().includes(s))) return false;
@@ -1755,7 +1755,7 @@ export default function App() {
         return true;
       })
       .sort((a, b) => b.likes - a.likes);
-  }, [faqs, selectedGame, selectedTag, search]);
+  }, [faqs, selectedGame, selectedTags, search]);
 
   const gameCountMap = useMemo(() => {
     const m = {};
@@ -1915,8 +1915,8 @@ export default function App() {
         {activeTags.length > 0 && (
           <div className="tag-filters">
             {activeTags.map((tg) => (
-              <button key={tg} className={`tag-chip ${selectedTag === tg ? "active" : ""}`}
-                onClick={() => setSelectedTag(selectedTag === tg ? null : tg)}>
+              <button key={tg} className={`tag-chip ${selectedTags.has(tg) ? "active" : ""}`}
+                onClick={() => setSelectedTags((prev) => { const next = new Set(prev); next.has(tg) ? next.delete(tg) : next.add(tg); return next; })}>
                 #{tg}
               </button>
             ))}
