@@ -86,6 +86,8 @@ const UI_STRINGS = {
     showComments: "댓글 보기",
     hideComments: "댓글 접기",
     addGame: "게임 추가",
+    gameSearch: "게임 이름 검색...",
+    selectGame: "게임 선택",
     newGame: "새 게임 등록",
     gameName: "게임 이름",
     gameNamePh: "예: 카탄, 글룸헤이븐",
@@ -153,6 +155,8 @@ const UI_STRINGS = {
     showComments: "Show comments",
     hideComments: "Hide comments",
     addGame: "Add game",
+    gameSearch: "Search games...",
+    selectGame: "Select game",
     newGame: "New Game",
     gameName: "Game name",
     gameNamePh: "e.g. Catan, Gloomhaven",
@@ -220,6 +224,8 @@ const UI_STRINGS = {
     showComments: "Kommentare anzeigen",
     hideComments: "Kommentare ausblenden",
     addGame: "Spiel hinzufügen",
+    gameSearch: "Spiele suchen...",
+    selectGame: "Spiel wählen",
     newGame: "Neues Spiel",
     gameName: "Spielname",
     gameNamePh: "z.B. Catan, Gloomhaven",
@@ -358,6 +364,7 @@ const GlobeIcon = (p) => <Icon d="M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20M1
 const CheckIcon = (p) => <Icon d="M20 6L9 17l-5-5" {...p} />;
 const SunIcon = (p) => <Icon d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42M12 7a5 5 0 100 10 5 5 0 000-10z" {...p} />;
 const MoonIcon = (p) => <Icon d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" {...p} />;
+const ChevronDownIcon = (p) => <Icon d="M6 9l6 6 6-6" {...p} />;
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 const css = `
@@ -531,18 +538,69 @@ const css = `
   .search-bar input::placeholder { color:var(--text-muted); }
   .search-bar input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-subtle); }
 
-  /* Game Tabs */
-  .game-tabs { display:flex; gap:6px; padding:6px 0; overflow-x:auto; scrollbar-width:none; }
-  .game-tabs::-webkit-scrollbar { display:none; }
-  .game-tab {
-    display:flex; align-items:center; gap:6px; padding:8px 14px; border-radius:var(--radius);
-    border:1px solid var(--border); background:transparent; color:var(--text-secondary);
-    font-size:13px; font-family:inherit; cursor:pointer; white-space:nowrap; transition:all var(--transition);
+  /* Game Selector */
+  .game-selector-row { display:flex; align-items:center; gap:8px; padding:8px 0; }
+  .game-selector-btn {
+    display:flex; align-items:center; gap:8px; padding:9px 14px; border-radius:var(--radius);
+    border:1px solid var(--border); background:var(--bg-card); color:var(--text-primary);
+    font-size:14px; font-family:inherit; cursor:pointer; transition:all var(--transition); flex:1; min-width:0;
   }
-  .game-tab:hover { background:var(--bg-card); border-color:var(--text-muted); }
-  .game-tab.active { background:var(--accent-subtle); border-color:var(--accent); color:var(--accent); }
-  .game-tab .tab-count { background:var(--bg-input); padding:1px 7px; border-radius:99px; font-size:11px; font-weight:600; color:var(--text-muted); }
-  .game-tab.active .tab-count { background:var(--accent); color:white; }
+  .game-selector-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .game-selector-btn .game-selector-name { flex:1; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:500; }
+  .game-selector-btn .game-selector-count { background:var(--accent); color:white; padding:1px 8px; border-radius:99px; font-size:11px; font-weight:600; flex-shrink:0; }
+
+  /* Game Drawer */
+  .game-drawer-overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200;
+    animation:fadeIn 0.2s ease-out;
+  }
+  .game-drawer {
+    position:fixed; top:0; left:0; bottom:0; width:300px; max-width:85vw;
+    background:var(--bg-secondary); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; z-index:201;
+    animation:slideInLeft 0.25s cubic-bezier(0.4,0,0.2,1);
+  }
+  @keyframes slideInLeft { from { transform:translateX(-100%); } to { transform:translateX(0); } }
+  .game-drawer-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 16px 14px; border-bottom:1px solid var(--border); flex-shrink:0;
+  }
+  .game-drawer-title { font-size:15px; font-weight:700; color:var(--text-primary); }
+  .game-drawer-close {
+    display:flex; align-items:center; justify-content:center; width:32px; height:32px;
+    border-radius:var(--radius-sm); border:none; background:transparent;
+    color:var(--text-muted); cursor:pointer; transition:all var(--transition);
+  }
+  .game-drawer-close:hover { background:var(--bg-card); color:var(--text-primary); }
+  .game-drawer-search-wrap { padding:12px 16px; flex-shrink:0; border-bottom:1px solid var(--border); }
+  .game-drawer-search { position:relative; }
+  .game-drawer-search svg { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--text-muted); pointer-events:none; }
+  .game-drawer-search input {
+    width:100%; padding:9px 12px 9px 36px; background:var(--bg-input);
+    border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary);
+    font-size:13px; font-family:inherit; outline:none; transition:all var(--transition);
+  }
+  .game-drawer-search input::placeholder { color:var(--text-muted); }
+  .game-drawer-search input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-subtle); }
+  .game-drawer-list { flex:1; overflow-y:auto; padding:8px; }
+  .game-drawer-item {
+    display:flex; align-items:center; gap:10px; width:100%; padding:10px 12px;
+    border-radius:var(--radius); border:none; background:transparent; color:var(--text-secondary);
+    font-size:13px; font-family:inherit; cursor:pointer; transition:all var(--transition); text-align:left;
+  }
+  .game-drawer-item:hover { background:var(--bg-card); color:var(--text-primary); }
+  .game-drawer-item.active { background:var(--accent-subtle); color:var(--accent); font-weight:600; }
+  .game-drawer-item .item-name { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .game-drawer-item .item-count { background:var(--bg-input); padding:1px 7px; border-radius:99px; font-size:11px; font-weight:600; color:var(--text-muted); flex-shrink:0; }
+  .game-drawer-item.active .item-count { background:var(--accent); color:white; }
+  .game-drawer-footer { padding:12px 16px; border-top:1px solid var(--border); flex-shrink:0; }
+  .game-drawer-add {
+    display:flex; align-items:center; justify-content:center; gap:6px; width:100%;
+    padding:9px 14px; border-radius:var(--radius); border:1px dashed var(--border);
+    background:transparent; color:var(--text-muted); font-size:13px; font-family:inherit;
+    cursor:pointer; transition:all var(--transition);
+  }
+  .game-drawer-add:hover { border-color:var(--accent); color:var(--accent); }
 
   /* Tag Filters */
   .tag-filters { display:flex; gap:6px; padding:12px 0; flex-wrap:wrap; }
@@ -1269,6 +1327,8 @@ export default function App() {
   const [showForm, setShowForm] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [showGameForm, setShowGameForm] = useState(false);
+  const [gameDrawerOpen, setGameDrawerOpen] = useState(false);
+  const [gameSearch, setGameSearch] = useState("");
   const [toasts, setToasts] = useState([]);
   const [lang, setLang] = useState("ko");
   const [langDropOpen, setLangDropOpen] = useState(false);
@@ -1597,19 +1657,75 @@ export default function App() {
           )}
         </header>
 
-        <div className="game-tabs">
-          <button className={`game-tab ${selectedGame === "all" ? "active" : ""}`} onClick={() => setSelectedGame("all")}>
-            <span>📋</span> {t.all} <span className="tab-count">{faqs.length}</span>
-          </button>
-          {games.map((g) => (
-            <button key={g.id} className={`game-tab ${selectedGame === g.id ? "active" : ""}`} onClick={() => setSelectedGame(g.id)}>
-              <span>{g.icon}</span> {getGameName(g)} <span className="tab-count">{gameCountMap[g.id] || 0}</span>
-            </button>
-          ))}
-          <button className="game-tab" onClick={() => setShowGameForm(true)} style={{ borderStyle: "dashed", color: "var(--text-muted)" }}>
-            <PlusIcon size={14} /> {t.addGame}
+        <div className="game-selector-row">
+          <button className="game-selector-btn" onClick={() => setGameDrawerOpen(true)}>
+            <span>{selectedGame === "all" ? "📋" : (games.find(g => g.id === selectedGame)?.icon ?? "🎲")}</span>
+            <span className="game-selector-name">
+              {selectedGame === "all" ? t.all : (games.find(g => g.id === selectedGame) ? getGameName(games.find(g => g.id === selectedGame)) : t.selectGame)}
+            </span>
+            <span className="game-selector-count">
+              {selectedGame === "all" ? faqs.length : (gameCountMap[selectedGame] || 0)}
+            </span>
+            <ChevronDownIcon size={15} />
           </button>
         </div>
+
+        {gameDrawerOpen && (
+          <>
+            <div className="game-drawer-overlay" onClick={() => setGameDrawerOpen(false)} />
+            <div className="game-drawer">
+              <div className="game-drawer-header">
+                <span className="game-drawer-title">🎲 {t.selectGame}</span>
+                <button className="game-drawer-close" onClick={() => setGameDrawerOpen(false)}><XIcon size={17} /></button>
+              </div>
+              <div className="game-drawer-search-wrap">
+                <div className="game-drawer-search">
+                  <SearchIcon size={15} />
+                  <input
+                    placeholder={t.gameSearch}
+                    value={gameSearch}
+                    onChange={(e) => setGameSearch(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="game-drawer-list">
+                {!gameSearch && (
+                  <button
+                    className={`game-drawer-item ${selectedGame === "all" ? "active" : ""}`}
+                    onClick={() => { setSelectedGame("all"); setGameDrawerOpen(false); setGameSearch(""); }}
+                  >
+                    <span>📋</span>
+                    <span className="item-name">{t.all}</span>
+                    <span className="item-count">{faqs.length}</span>
+                  </button>
+                )}
+                {games
+                  .filter(g => !gameSearch || getGameName(g).toLowerCase().includes(gameSearch.toLowerCase()) || (g.nameEn || "").toLowerCase().includes(gameSearch.toLowerCase()))
+                  .map((g) => (
+                    <button
+                      key={g.id}
+                      className={`game-drawer-item ${selectedGame === g.id ? "active" : ""}`}
+                      onClick={() => { setSelectedGame(g.id); setGameDrawerOpen(false); setGameSearch(""); }}
+                    >
+                      <span>{g.icon}</span>
+                      <span className="item-name">{getGameName(g)}</span>
+                      <span className="item-count">{gameCountMap[g.id] || 0}</span>
+                    </button>
+                  ))
+                }
+                {gameSearch && games.filter(g => getGameName(g).toLowerCase().includes(gameSearch.toLowerCase()) || (g.nameEn || "").toLowerCase().includes(gameSearch.toLowerCase())).length === 0 && (
+                  <div style={{ padding: "20px 12px", textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>검색 결과 없음</div>
+                )}
+              </div>
+              <div className="game-drawer-footer">
+                <button className="game-drawer-add" onClick={() => { setShowGameForm(true); setGameDrawerOpen(false); }}>
+                  <PlusIcon size={14} /> {t.addGame}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
 
         {activeTags.length > 0 && (
           <div className="tag-filters">
