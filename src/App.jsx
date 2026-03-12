@@ -89,6 +89,13 @@ const UI_STRINGS = {
     gameSearch: "게임 이름 검색...",
     selectGame: "게임 선택",
     newGame: "새 게임 등록",
+    bggSearch: "BGG에서 게임 검색",
+    bggSearchPh: "영문 게임명으로 검색...",
+    bggSearchBtn: "검색",
+    bggSearching: "BGG 검색 중...",
+    bggNoResults: "2000위 이내 게임을 찾을 수 없습니다",
+    bggError: "BGG 검색 중 오류가 발생했습니다",
+    bggSelectHint: "게임을 선택하면 자동으로 채워집니다",
     gameName: "게임 이름",
     gameNamePh: "예: 카탄, 글룸헤이븐",
     gameNameEn: "영문 이름 (선택)",
@@ -158,6 +165,13 @@ const UI_STRINGS = {
     gameSearch: "Search games...",
     selectGame: "Select game",
     newGame: "New Game",
+    bggSearch: "Search from BGG",
+    bggSearchPh: "Search by English name...",
+    bggSearchBtn: "Search",
+    bggSearching: "Searching BGG...",
+    bggNoResults: "No games found within top 2000",
+    bggError: "BGG search failed",
+    bggSelectHint: "Select a game to auto-fill",
     gameName: "Game name",
     gameNamePh: "e.g. Catan, Gloomhaven",
     gameNameEn: "English name (optional)",
@@ -227,6 +241,13 @@ const UI_STRINGS = {
     gameSearch: "Spiele suchen...",
     selectGame: "Spiel wählen",
     newGame: "Neues Spiel",
+    bggSearch: "BGG-Suche",
+    bggSearchPh: "Englischer Name...",
+    bggSearchBtn: "Suchen",
+    bggSearching: "BGG wird durchsucht...",
+    bggNoResults: "Kein Spiel unter Top 2000 gefunden",
+    bggError: "BGG-Suche fehlgeschlagen",
+    bggSelectHint: "Spiel auswählen zum Ausfüllen",
     gameName: "Spielname",
     gameNamePh: "z.B. Catan, Gloomhaven",
     gameNameEn: "Englischer Name (optional)",
@@ -850,6 +871,34 @@ const css = `
   .comment-submit:hover { background:var(--accent-hover); }
   .comment-submit:disabled { opacity:0.4; cursor:not-allowed; }
 
+  /* Form validation */
+  .form-error { color:var(--danger); font-size:12px; margin-top:4px; }
+  .form-input.error { border-color:var(--danger); box-shadow:0 0 0 2px var(--danger-subtle); }
+
+  /* BGG Search */
+  .bgg-section { margin-bottom:16px; padding-bottom:16px; border-bottom:1px solid var(--border); }
+  .bgg-search-row { display:flex; gap:8px; margin-top:6px; }
+  .bgg-search-row .form-input { flex:1; margin:0; }
+  .bgg-search-btn {
+    padding:9px 14px; border-radius:var(--radius); border:none; background:var(--accent);
+    color:white; font-size:13px; font-family:inherit; font-weight:600;
+    cursor:pointer; transition:all var(--transition); white-space:nowrap;
+  }
+  .bgg-search-btn:hover { background:var(--accent-hover); }
+  .bgg-search-btn:disabled { opacity:0.5; cursor:not-allowed; }
+  .bgg-status { font-size:12px; color:var(--text-muted); padding:8px 2px; text-align:center; }
+  .bgg-results { display:flex; flex-direction:column; gap:4px; margin-top:8px; max-height:200px; overflow-y:auto; }
+  .bgg-result-item {
+    display:flex; align-items:center; gap:10px; width:100%; padding:8px 10px;
+    border-radius:var(--radius-sm); border:1px solid var(--border); cursor:pointer;
+    background:var(--bg-input); text-align:left; font-family:inherit;
+    transition:all var(--transition);
+  }
+  .bgg-result-item:hover { border-color:var(--accent); background:var(--accent-subtle); }
+  .bgg-result-rank { font-size:11px; color:var(--text-muted); width:38px; flex-shrink:0; font-weight:600; }
+  .bgg-result-name { flex:1; font-size:13px; font-weight:500; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bgg-result-year { font-size:11px; color:var(--text-muted); flex-shrink:0; }
+
   @media (max-width:640px) {
     .app-container { padding:0 14px; }
     .modal { padding:20px; }
@@ -857,6 +906,43 @@ const css = `
     .fab { bottom:20px; right:20px; }
   }
 `;
+
+// ─── BGG Helper ─────────────────────────────────────────────────────────────
+async function searchBGGGames(query) {
+  const searchRes = await fetch(
+    `https://boardgamegeek.com/xmlapi2/search?query=${encodeURIComponent(query)}&type=boardgame`
+  );
+  const searchXml = await searchRes.text();
+  const parser = new DOMParser();
+  const searchDoc = parser.parseFromString(searchXml, "text/xml");
+  const items = Array.from(searchDoc.querySelectorAll("item")).slice(0, 20);
+  if (!items.length) return [];
+
+  const ids = items.map((el) => el.getAttribute("id")).join(",");
+
+  let thingRes = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${ids}&stats=1`);
+  if (thingRes.status === 202) {
+    await new Promise((r) => setTimeout(r, 2500));
+    thingRes = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${ids}&stats=1`);
+  }
+  const thingXml = await thingRes.text();
+  const thingDoc = parser.parseFromString(thingXml, "text/xml");
+
+  return Array.from(thingDoc.querySelectorAll("item"))
+    .map((el) => {
+      const primaryName = el.querySelector('name[type="primary"]')?.getAttribute("value") || "";
+      const altNames = Array.from(el.querySelectorAll('name[type="alternate"]')).map(
+        (n) => n.getAttribute("value") || ""
+      );
+      const nameKo = altNames.find((n) => /[\uac00-\ud7a3]/.test(n)) || "";
+      const year = el.querySelector("yearpublished")?.getAttribute("value") || "";
+      const rankEl = el.querySelector('rank[name="boardgame"]');
+      const rank = rankEl ? parseInt(rankEl.getAttribute("value")) || 99999 : 99999;
+      return { name: primaryName, nameKo, year, rank };
+    })
+    .filter((g) => g.rank <= 2000)
+    .sort((a, b) => a.rank - b.rank);
+}
 
 // ─── Sub-Components ─────────────────────────────────────────────────────────
 
@@ -884,37 +970,131 @@ function ConfirmModal({ message, onConfirm, onCancel, t }) {
 function GameFormModal({ onSave, onClose, t }) {
   const [name, setName] = useState("");
   const [nameEn, setNameEn] = useState("");
-  const [icon, setIcon] = useState("🎲");
+  const [icon, setIcon] = useState("");
+  const [errors, setErrors] = useState({});
+  const [bggQuery, setBggQuery] = useState("");
+  const [bggResults, setBggResults] = useState(null);
+  const [bggSearching, setBggSearching] = useState(false);
+  const [bggError, setBggError] = useState(false);
+
+  const handleIconChange = (e) => {
+    const matches = e.target.value.match(/\p{Extended_Pictographic}/gu);
+    const val = matches ? matches[0] : "";
+    setIcon(val);
+    if (errors.icon) setErrors((p) => ({ ...p, icon: null }));
+  };
+
+  const handleBggSearch = async () => {
+    if (!bggQuery.trim()) return;
+    setBggSearching(true);
+    setBggError(false);
+    setBggResults(null);
+    try {
+      const results = await searchBGGGames(bggQuery.trim());
+      setBggResults(results);
+    } catch {
+      setBggError(true);
+    }
+    setBggSearching(false);
+  };
+
+  const handleSelectBgg = (game) => {
+    setNameEn(game.name);
+    if (game.nameKo) setName(game.nameKo);
+    if (!icon) setIcon("🎲");
+    setBggResults(null);
+    setBggQuery("");
+    setErrors({});
+  };
 
   const handleSave = () => {
-    if (!name.trim()) return;
-    onSave({ name: name.trim(), nameEn: nameEn.trim() || null, nameDe: null, icon: icon.trim() || "🎲" });
+    const errs = {};
+    if (!name.trim()) errs.name = "필수 항목입니다";
+    if (!nameEn.trim()) errs.nameEn = "필수 항목입니다";
+    if (!icon.trim()) errs.icon = "이모지를 입력해주세요";
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    onSave({ name: name.trim(), nameEn: nameEn.trim(), nameDe: null, icon: icon.trim() });
   };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
         <div className="modal-title">{t.newGame}</div>
+
+        {/* BGG Search */}
+        <div className="bgg-section">
+          <label className="form-label">{t.bggSearch}</label>
+          <div className="bgg-search-row">
+            <input
+              className="form-input"
+              placeholder={t.bggSearchPh}
+              value={bggQuery}
+              onChange={(e) => setBggQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleBggSearch()}
+            />
+            <button
+              className="bgg-search-btn"
+              onClick={handleBggSearch}
+              disabled={bggSearching || !bggQuery.trim()}
+            >
+              {bggSearching ? "..." : t.bggSearchBtn}
+            </button>
+          </div>
+          {bggSearching && <div className="bgg-status">{t.bggSearching}</div>}
+          {bggError && <div className="bgg-status" style={{ color: "var(--danger)" }}>{t.bggError}</div>}
+          {bggResults !== null && !bggSearching && (
+            bggResults.length === 0
+              ? <div className="bgg-status">{t.bggNoResults}</div>
+              : <>
+                  <div className="bgg-status" style={{ textAlign: "left", marginBottom: 4 }}>{t.bggSelectHint}</div>
+                  <div className="bgg-results">
+                    {bggResults.map((g, i) => (
+                      <button key={i} className="bgg-result-item" onClick={() => handleSelectBgg(g)}>
+                        <span className="bgg-result-rank">#{g.rank}</span>
+                        <span className="bgg-result-name">{g.name}{g.nameKo && ` / ${g.nameKo}`}</span>
+                        <span className="bgg-result-year">{g.year}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+          )}
+        </div>
+
         <div className="form-group">
-          <label className="form-label">{t.gameName}</label>
-          <input className="form-input" placeholder={t.gameNamePh} value={name}
-            onChange={(e) => setName(e.target.value)} autoFocus />
+          <label className="form-label">{t.gameName} <span style={{ color: "var(--danger)" }}>*</span></label>
+          <input
+            className={`form-input${errors.name ? " error" : ""}`}
+            placeholder={t.gameNamePh}
+            value={name}
+            onChange={(e) => { setName(e.target.value); if (errors.name) setErrors((p) => ({ ...p, name: null })); }}
+            autoFocus
+          />
+          {errors.name && <div className="form-error">{errors.name}</div>}
         </div>
         <div className="form-group">
-          <label className="form-label">{t.gameNameEn}</label>
-          <input className="form-input" placeholder={t.gameNameEnPh} value={nameEn}
-            onChange={(e) => setNameEn(e.target.value)} />
+          <label className="form-label">{t.gameNameEn} <span style={{ color: "var(--danger)" }}>*</span></label>
+          <input
+            className={`form-input${errors.nameEn ? " error" : ""}`}
+            placeholder={t.gameNameEnPh}
+            value={nameEn}
+            onChange={(e) => { setNameEn(e.target.value); if (errors.nameEn) setErrors((p) => ({ ...p, nameEn: null })); }}
+          />
+          {errors.nameEn && <div className="form-error">{errors.nameEn}</div>}
         </div>
         <div className="form-group">
-          <label className="form-label">{t.gameIcon}</label>
-          <input className="form-input" placeholder={t.gameIconPh} value={icon}
-            onChange={(e) => setIcon(e.target.value)} style={{ width: 100 }} />
+          <label className="form-label">{t.gameIcon} <span style={{ color: "var(--danger)" }}>*</span></label>
+          <input
+            className={`form-input${errors.icon ? " error" : ""}`}
+            placeholder={t.gameIconPh}
+            value={icon}
+            onChange={handleIconChange}
+            style={{ width: 100 }}
+          />
+          {errors.icon && <div className="form-error">{errors.icon}</div>}
         </div>
         <div className="btn-row">
           <button className="btn" onClick={onClose}>{t.cancel}</button>
-          <button className="btn btn-primary" onClick={handleSave} disabled={!name.trim()}>
-            {t.save}
-          </button>
+          <button className="btn btn-primary" onClick={handleSave}>{t.save}</button>
         </div>
       </div>
     </div>
@@ -1543,9 +1723,14 @@ export default function App() {
   };
 
   const handleAddGame = async (gameData) => {
-    const { data: inserted } = await supabase.from("games").insert({
+    const { data: inserted, error } = await supabase.from("games").insert({
       name: gameData.name, name_en: gameData.nameEn, name_de: gameData.nameDe, icon: gameData.icon,
     }).select().single();
+    if (error) {
+      console.error("Game insert failed:", error);
+      showToast("게임 추가 실패: " + (error.message || "권한 오류 — Supabase RLS 정책 확인 필요"));
+      return;
+    }
     if (inserted) {
       setGames((prev) => [...prev, { id: inserted.id, name: inserted.name, nameEn: inserted.name_en, nameDe: inserted.name_de, icon: inserted.icon }]);
     }
