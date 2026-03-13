@@ -651,7 +651,7 @@ const css = `
   .badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:99px; font-size:11px; font-weight:600; }
   .badge-locked { background:var(--warning-subtle); color:var(--warning); }
   .badge-translated { background:var(--translate-subtle); color:var(--translate-color); }
-  .faq-answer { margin-top:10px; font-size:14px; color:var(--text-secondary); line-height:1.7; padding-left:2px; }
+  .faq-answer { margin-top:10px; font-size:14px; color:var(--text-secondary); line-height:1.7; padding-left:2px; white-space:pre-wrap; }
 
   /* Translation display */
   .faq-translation {
