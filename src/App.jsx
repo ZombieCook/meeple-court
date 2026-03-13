@@ -1750,12 +1750,19 @@ export default function App() {
         if (selectedTags.size > 0 && ![...selectedTags].every((tg) => f.tags.includes(tg))) return false;
         if (search.trim()) {
           const s = search.toLowerCase();
-          if (!f.question.toLowerCase().includes(s) && !f.answer.toLowerCase().includes(s) && !f.tags.some((tg) => tg.toLowerCase().includes(s))) return false;
+          const game = games.find((g) => g.id === f.gameId);
+          const gameName = [game?.name, game?.nameEn].filter(Boolean).join(" ").toLowerCase();
+          if (
+            !f.question.toLowerCase().includes(s) &&
+            !f.answer.toLowerCase().includes(s) &&
+            !f.tags.some((tg) => tg.toLowerCase().includes(s)) &&
+            !gameName.includes(s)
+          ) return false;
         }
         return true;
       })
       .sort((a, b) => b.likes - a.likes);
-  }, [faqs, selectedGame, selectedTags, search]);
+  }, [faqs, games, selectedGame, selectedTags, search]);
 
   const gameCountMap = useMemo(() => {
     const m = {};
@@ -1763,11 +1770,28 @@ export default function App() {
     return m;
   }, [faqs]);
 
+  // 태그 목록은 게임+검색 필터만 적용된 결과 기준 (태그 선택과 무관하게 항상 전체 표시)
   const activeTags = useMemo(() => {
     const tagSet = new Set();
-    filteredFaqs.forEach((f) => f.tags.forEach((tg) => tagSet.add(tg)));
+    faqs
+      .filter((f) => {
+        if (selectedGame !== "all" && f.gameId !== selectedGame) return false;
+        if (search.trim()) {
+          const s = search.toLowerCase();
+          const game = games.find((g) => g.id === f.gameId);
+          const gameName = [game?.name, game?.nameEn].filter(Boolean).join(" ").toLowerCase();
+          if (
+            !f.question.toLowerCase().includes(s) &&
+            !f.answer.toLowerCase().includes(s) &&
+            !f.tags.some((tg) => tg.toLowerCase().includes(s)) &&
+            !gameName.includes(s)
+          ) return false;
+        }
+        return true;
+      })
+      .forEach((f) => f.tags.forEach((tg) => tagSet.add(tg)));
     return [...tagSet].sort();
-  }, [filteredFaqs]);
+  }, [faqs, games, selectedGame, search]);
 
   const currentLangInfo = LANGUAGES.find((l) => l.code === lang);
 
